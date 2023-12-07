@@ -48,10 +48,7 @@ def matrix_power(matrix, power):
     else:
         half_power = matrix_power(matrix, power // 2)
         half_power_squared = matrix_multiply(half_power, half_power)
-        if power % 2 == 0:
-            return half_power_squared
-        else:
-            return matrix_multiply(matrix, half_power_squared)
+        return matrix_multiply(matrix, half_power_squared) if power % 2 else half_power_squared
 
 
 def fibonacci(n):
@@ -79,16 +76,23 @@ def fibonacci(n):
         return powered_matrix[0]
 
 
+# def how_times_Ln_divided_2(ln):
+#     times = 0
+#     bit_length = ln.bit_length()  # 获取ln的二进制位长度
+#     while bit_length > 0:
+#         if ln.is_even():  # 检查ln是否为偶数
+#             ln = gmpy2.f_div_2exp(ln, 1)  # ln除以 2，函数的第二个参数是除数的指数
+#             times += 1
+#         else:
+#             break
+#         bit_length -= 1  # 二进制位长度减1
+#     return times
+
 def how_times_Ln_divided_2(ln):
     times = 0
-    bit_length = ln.bit_length()  # 获取ln的二进制位长度
-    while bit_length > 0:
-        if ln.is_even():  # 检查ln是否为偶数
-            ln = gmpy2.f_div_2exp(ln, 1)  # ln除以 2，函数的第二个参数是除数的指数
-            times += 1
-        else:
-            break
-        bit_length -= 1  # 二进制位长度减1
+    while ln > 0 and ln.is_even():  # 检查ln是否为偶数
+        ln = gmpy2.f_div_2exp(ln, 1)
+        times += 1
     return times
 
 
@@ -97,10 +101,7 @@ def get_latest_file():
     files = [f for f in os.listdir(".") if re.match(r"output_n=\d+\.txt", f)]
     if not files:
         return None
-    files.sort(
-        key=lambda x: int(re.search(r"output_n=(\d+).txt", x).group(1)), reverse=True
-    )
-    return files[0]
+    return max(files, key=lambda x: int(re.search(r"output_n=(\d+).txt", x).group(1)))
 
 
 def calculate_2adic(index):  # 核心算法，这我不懂XD

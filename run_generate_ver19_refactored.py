@@ -9,6 +9,7 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger()
 
 
+# 矩阵乘法
 def matrix_multiply(matrix1, matrix2):
     """
     一个三元组(a, b, c)被用来表示一个2x2的矩阵
@@ -25,6 +26,7 @@ def matrix_multiply(matrix1, matrix2):
     )
 
 
+# 矩阵幂
 def matrix_power(matrix, power):
     """
     递归快速幂算法
@@ -51,6 +53,7 @@ def matrix_power(matrix, power):
         return matrix_multiply(matrix, half_power_squared) if power % 2 else half_power_squared
 
 
+# 计算斐波那契数列第n项
 def fibonacci(n):
     """
     斐波那契数列有一个性质，它可以通过一个2x2矩阵的幂运算来计算
@@ -76,6 +79,7 @@ def fibonacci(n):
         return powered_matrix[0]
 
 
+# 计算Ln被2除的次数
 def how_times_Ln_divided_2(ln):
     times = 0
     while ln > 0 and ln.is_even():  # 检查ln是否为偶数
@@ -84,6 +88,7 @@ def how_times_Ln_divided_2(ln):
     return times
 
 
+# 获取最新文件
 def get_latest_file():
     # 获取当前目录下所有output_n={n}.txt文件，并找到n最大的文件
     files = [f for f in os.listdir(".") if re.match(r"output_n=\d+\.txt", f)]
@@ -92,7 +97,8 @@ def get_latest_file():
     return max(files, key=lambda x: int(re.search(r"output_n=(\d+).txt", x).group(1)))
 
 
-def calculate_2adic(index):  # 核心算法，这我不懂XD
+# 核心算法
+def calculate_2adic(index):
     fib1 = fibonacci(12 * index + 3)
     fib2 = fibonacci(12 * index + 4)
     const = gmpy2.mpz(4 * (12 * index + 3) - 1)
@@ -102,16 +108,19 @@ def calculate_2adic(index):  # 核心算法，这我不懂XD
     return result
 
 
+# 读取已有结果
 def read_existing_results(file_path):
     with open(file_path, "r") as f:
         return list(map(int, f.read().strip().split()))
 
 
+# 写入结果到文件
 def write_results_to_file(file_path, results):
     with open(file_path, "w") as f:
         f.write(" ".join(map(str, results)))
 
 
+# 获取最新文件路径
 def get_latest_file_path():
     files = [f for f in os.listdir(".") if re.match(r"output_n=\d+\.txt", f)]
     if not files:
@@ -119,55 +128,110 @@ def get_latest_file_path():
     return max(files, key=lambda x: int(re.search(r"output_n=(\d+).txt", x).group(1)))
 
 
+# 启动计算
 def calculate_results(pool, start_index, end_index):
     return [pool.apply_async(calculate_2adic, args=(i,)) for i in range(start_index, end_index)]
 
 
+# 收集结果
 def collect_results(result_objects):
     return [obj.get() for obj in result_objects if obj.ready()]
 
 
-def main(n):
-    start_time = time.time()
-    latest_file_path = get_latest_file_path()
-    start_index = 0
-    results = []
-
+# 初始化结果列表
+def initialize_results(latest_file_path):
     if latest_file_path:
         try:
             results = read_existing_results(latest_file_path)
-            start_index = len(results)
-            logger.info(f"已从文件 {latest_file_path} 中读取 {start_index} 个结果。")
+            logger.info(f"已从文件 {latest_file_path} 中读取 {len(results)} 个结果。")
+            return results
         except FileNotFoundError:
             logger.info("文件不存在，将创建新文件并从头开始计算。")
     else:
         logger.info("未找到现有文件，将创建新文件并从头开始计算。")
+    return []
 
-    if n <= start_index:
-        logger.info(f"文件中已包含 {start_index} 个数，无需进行更多计算。")
-        output_filename = f"output_n={n}.txt"
-        write_results_to_file(output_filename, results[:n])
-    else:
-        with Pool() as pool:
-            result_objects = calculate_results(pool, start_index, n)
-            pool.close()
-            try:
-                while not all(obj.ready() for obj in result_objects):
-                    time.sleep(0.1)
-            except KeyboardInterrupt:
-                logger.info("用户中断了计算。正在保存当前结果...")
-                pool.terminate()
-            finally:
-                pool.join()
-                results.extend(collect_results(result_objects))
-                output_filename = f"output_n={len(results)}.txt"
-                write_results_to_file(output_filename, results)
 
+# 执行计算任务并处理异常信号
+def perform_computations(pool, start_index, n):
+    result_objects = calculate_results(pool, start_index, n)
+    pool.close()
+    try:
+        while not all(obj.ready() for obj in result_objects):
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        logger.info("用户中断了计算。正在保存当前结果...")
+        pool.terminate()
+        pool.join()
+        return collect_results(result_objects), True
+    pool.join()
+    return collect_results(result_objects), False
+
+
+# 保存结果到文件并打印运行时间
+def save_and_exit(results, output_filename):
+    write_results_to_file(output_filename, results)
+    logger.info(f"结果已写入到 {output_filename}")
     end_time = time.time()
     logger.info(f"程序运行时间: {end_time - start_time} 秒")
+
+
+# 初始化进程池
+def initialize_pool():
+    return Pool()
+
+
+# 关闭进程池
+def shutdown_pool(pool, interrupted):
+    if interrupted:
+        pool.terminate()
+    pool.join()
+
+
+# 处理计算任务，返回计算结果和是否被中断的标志
+def handle_computation(pool, start_index, n):
+    result_objects = calculate_results(pool, start_index, n)
+    pool.close()
+    try:
+        while not all(obj.ready() for obj in result_objects):
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        logger.info("用户中断了计算。正在保存当前结果...")
+        return collect_results(result_objects), True
+    return collect_results(result_objects), False
+
+
+# 流程控制函数
+def main_flow(n, latest_file_path):
+    results = initialize_results(latest_file_path)
+    start_index = len(results)
+    if n <= start_index:
+        logger.info(f"文件中已包含 {start_index} 个数，无需进行更多计算。")
+        return results, f"output_n={n}.txt", True
+    pool = initialize_pool()
+    new_results, interrupted = handle_computation(pool, start_index, n)
+    results.extend(new_results)
+    output_filename = f"output_n={len(results)}.txt"
+    shutdown_pool(pool, interrupted)
+    return results, output_filename, interrupted
+
+
+# 主函数
+def main(n):
+    start_time = time.time()
+    latest_file_path = get_latest_file_path()
+    results, output_filename, interrupted = main_flow(n, latest_file_path)
+    write_results_to_file(output_filename, results)
     logger.info(f"结果已写入到 {output_filename}")
+    end_time = time.time()
+    logger.info(f"程序运行时间: {end_time - start_time} 秒")
+    if interrupted:
+        return  # 如果计算被中断，则提前退出
 
 
 if __name__ == "__main__":
-    n = int(input("请输入n: "))
-    main(n)
+    try:
+        n = int(input("请输入n: "))
+        main(n)
+    except KeyboardInterrupt:
+        logger.info("用户中断了程序。")
