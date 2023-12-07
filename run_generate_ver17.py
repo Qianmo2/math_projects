@@ -3,7 +3,7 @@ import logging
 import gmpy2
 import os
 import re
-from multiprocessing import Pool, TimeoutError
+from multiprocessing import Pool
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger()
@@ -116,6 +116,7 @@ def calculate_2adic(index):  # 核心算法，这我不懂XD
 def main(n):
     start_time = time.time()
     start_index = 0
+    sleep_time = 0.1
     results = []
 
     # 获取最新的文件
@@ -125,12 +126,12 @@ def main(n):
             with open(latest_file, "r") as f:
                 existing_results = f.read().strip().split()
                 start_index = len(existing_results)
-                results = list(map(int, existing_results))
+                results.extend(list(map(int, existing_results)))
                 logger.info(f"已从文件 {latest_file} 中读取 {start_index} 个结果。")
         except FileNotFoundError:
             logger.info("文件不存在，将创建新文件并从头开始计算。")
     else:
-        logger.info("未找到现有文件，" "将创建新文件并从头开始计算。")
+        logger.info("未找到现有文件，将创建新文件并从头开始计算。")
 
     # 检查用户输入的n是否小于已计算的数量
     if n <= start_index:
@@ -139,40 +140,31 @@ def main(n):
         with open(output_filename, "w") as f:
             f.write(" ".join(map(str, results[:n])))
     else:
-        # 从断点继续计算
-        with Pool() as p:
-            async_result = p.map_async(calculate_2adic, range(start_index, n))
+        pool = Pool()
+        result_objects = []
+        try:
+            for i in range(start_index, n):
+                result_objects.append(pool.apply_async(calculate_2adic, args=(i,)))
+            pool.close()  # 不再接受新的任务
+            while not all(obj.ready() for obj in result_objects):
+                time.sleep(sleep_time)  # 等待1秒钟再次检查
+        except KeyboardInterrupt:
+            logger.info("用户中断了计算。正在保存当前结果...")
+            pool.terminate()  # 立即停止所有子进程
+        finally:
+            pool.join()  # 等待所有子进程退出
+            # 收集已完成的任务的结果
+            for result_object in result_objects:
+                if result_object.ready():
+                    results.append(result_object.get())
+            # 无论是否发生异常，都将当前结果写入文件
+            output_filename = f"output_n={len(results)}.txt"
+            with open(output_filename, "w") as f:
+                f.write(" ".join(map(str, results)))
 
-            try:
-                # 每隔一段时间检查一次是否完成
-                while not async_result.ready():
-                    async_result.wait(timeout=0.1)
-                # 获取所有结果
-                new_results = async_result.get()
-            except KeyboardInterrupt:
-                # 用户按下 Ctrl+C，获取当前已经计算的结果
-                logger.info("用户中断了计算。")
-                # 获取目前为止已经完成的结果
-                if not async_result.ready():
-                    p.terminate()
-                    p.join()
-                    # 使用 _value 属性时要特别小心，它可能包含 None 值
-                    # 使用列表推导式过滤 None 值
-                    new_results = [res for res in async_result._value if res is not None]
-            finally:
-                # 如果 new_results 被赋值了，则扩展 results 列表
-                if 'new_results' in locals():
-                    results.extend(new_results)
-                # 写入到新文件 output_n={当前已计算的数量}.txt
-                actual_count = len(results)
-                output_filename = f"output_n={actual_count}.txt"
-                with open(output_filename, "w") as f:
-                    # 写入时排除 None 值
-                    f.write(" ".join(map(str, [res for res in results if res is not None])))
-
-                end_time = time.time()
-                logger.info(f"程序运行时间: {end_time - start_time} 秒")
-                logger.info(f"结果已写入到 {output_filename}")
+    end_time = time.time()
+    logger.info(f"程序运行时间: {end_time - start_time} 秒")
+    logger.info(f"结果已写入到 {output_filename}")
 
 
 if __name__ == "__main__":

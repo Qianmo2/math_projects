@@ -3,7 +3,7 @@ import logging
 import gmpy2
 import os
 import re
-from multiprocessing import Pool, TimeoutError
+from multiprocessing import Pool, Manager
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger()
@@ -103,20 +103,21 @@ def get_latest_file():
     return files[0]
 
 
-def calculate_2adic(index):  # 核心算法，这我不懂XD
+def calculate_2adic(index, results):  # 修改函数签名以接收results列表
     fib1 = fibonacci(12 * index + 3)
     fib2 = fibonacci(12 * index + 4)
     const = gmpy2.mpz(4 * (12 * index + 3) - 1)
     Ln = (const * fib1 + 2 * (12 * index + 3) * fib2) // 5
     result = how_times_Ln_divided_2(Ln)
     logger.info(f"第 {index + 1} 个数的 2-adic 为：{result}")
-    return result
+    results.append(result)  # 将结果添加到共享列表中
 
 
 def main(n):
     start_time = time.time()
     start_index = 0
-    results = []
+    manager = Manager()
+    results = manager.list()  # 使用Manager的list来支持多进程间的数据共享
 
     # 获取最新的文件
     latest_file = get_latest_file()
@@ -125,12 +126,12 @@ def main(n):
             with open(latest_file, "r") as f:
                 existing_results = f.read().strip().split()
                 start_index = len(existing_results)
-                results = list(map(int, existing_results))
+                results.extend(list(map(int, existing_results)))
                 logger.info(f"已从文件 {latest_file} 中读取 {start_index} 个结果。")
         except FileNotFoundError:
             logger.info("文件不存在，将创建新文件并从头开始计算。")
     else:
-        logger.info("未找到现有文件，" "将创建新文件并从头开始计算。")
+        logger.info("未找到现有文件，将创建新文件并从头开始计算。")
 
     # 检查用户输入的n是否小于已计算的数量
     if n <= start_index:
@@ -139,40 +140,24 @@ def main(n):
         with open(output_filename, "w") as f:
             f.write(" ".join(map(str, results[:n])))
     else:
-        # 从断点继续计算
-        with Pool() as p:
-            async_result = p.map_async(calculate_2adic, range(start_index, n))
-
-            try:
-                # 每隔一段时间检查一次是否完成
+        try:
+            with Pool() as p:
+                # 使用p.starmap_async()而不是p.map_async()，以便传递额外的参数
+                async_result = p.starmap_async(calculate_2adic, [(i, results) for i in range(start_index, n)])
+                # 循环检查是否完成，以便能够响应Ctrl+C
                 while not async_result.ready():
-                    async_result.wait(timeout=0.1)
-                # 获取所有结果
-                new_results = async_result.get()
-            except KeyboardInterrupt:
-                # 用户按下 Ctrl+C，获取当前已经计算的结果
-                logger.info("用户中断了计算。")
-                # 获取目前为止已经完成的结果
-                if not async_result.ready():
-                    p.terminate()
-                    p.join()
-                    # 使用 _value 属性时要特别小心，它可能包含 None 值
-                    # 使用列表推导式过滤 None 值
-                    new_results = [res for res in async_result._value if res is not None]
-            finally:
-                # 如果 new_results 被赋值了，则扩展 results 列表
-                if 'new_results' in locals():
-                    results.extend(new_results)
-                # 写入到新文件 output_n={当前已计算的数量}.txt
-                actual_count = len(results)
-                output_filename = f"output_n={actual_count}.txt"
-                with open(output_filename, "w") as f:
-                    # 写入时排除 None 值
-                    f.write(" ".join(map(str, [res for res in results if res is not None])))
+                    async_result.wait(timeout=1)  # 等待1秒钟再次检查
+        except KeyboardInterrupt:
+            logger.info("用户中断了计算。正在保存当前结果...")
+        finally:
+            # 无论是否发生异常，都将当前结果写入文件
+            output_filename = f"output_n={len(results)}.txt"
+            with open(output_filename, "w") as f:
+                f.write(" ".join(map(str, list(results))))  # 将Manager的list转换为普通list
 
-                end_time = time.time()
-                logger.info(f"程序运行时间: {end_time - start_time} 秒")
-                logger.info(f"结果已写入到 {output_filename}")
+    end_time = time.time()
+    logger.info(f"程序运行时间: {end_time - start_time} 秒")
+    logger.info(f"结果已写入到 {output_filename}")
 
 
 if __name__ == "__main__":
