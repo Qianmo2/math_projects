@@ -9,9 +9,10 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger()
 
 
-# 矩阵乘法
 def matrix_multiply(matrix1, matrix2):
     """
+    矩阵乘法
+
     一个三元组(a, b, c)被用来表示一个2x2的矩阵
     | a b | * | d e |
     | b c |   | e f |
@@ -26,7 +27,6 @@ def matrix_multiply(matrix1, matrix2):
     )
 
 
-# 矩阵幂
 def matrix_power(matrix, power):
     """
     递归快速幂算法
@@ -53,7 +53,6 @@ def matrix_power(matrix, power):
         return matrix_multiply(matrix, half_power_squared) if power % 2 else half_power_squared
 
 
-# 计算斐波那契数列第n项
 def fibonacci(n):
     """
     斐波那契数列有一个性质，它可以通过一个2x2矩阵的幂运算来计算
@@ -79,8 +78,8 @@ def fibonacci(n):
         return powered_matrix[0]
 
 
-# 计算Ln被2除的次数
 def how_times_Ln_divided_2(ln):
+    """计算Ln被2除的次数"""
     times = 0
     while ln > 0 and ln.is_even():  # 检查ln是否为偶数
         ln = gmpy2.f_div_2exp(ln, 1)
@@ -88,8 +87,8 @@ def how_times_Ln_divided_2(ln):
     return times
 
 
-# 获取最新文件
 def get_latest_file():
+    """获取最新文件"""
     # 获取当前目录下所有output_n={n}.txt文件，并找到n最大的文件
     files = [f for f in os.listdir(".") if re.match(r"output_n=\d+\.txt", f)]
     if not files:
@@ -97,8 +96,8 @@ def get_latest_file():
     return max(files, key=lambda x: int(re.search(r"output_n=(\d+).txt", x).group(1)))
 
 
-# 核心算法
 def calculate_2adic(index):
+    """核心算法"""
     fib1 = fibonacci(12 * index + 3)
     fib2 = fibonacci(12 * index + 4)
     const = gmpy2.mpz(4 * (12 * index + 3) - 1)
@@ -108,38 +107,38 @@ def calculate_2adic(index):
     return result
 
 
-# 读取已有结果
 def read_existing_results(file_path):
+    """读取已有结果"""
     with open(file_path, "r") as f:
         return list(map(int, f.read().strip().split()))
 
 
-# 写入结果到文件
 def write_results_to_file(file_path, results):
+    """写入结果到文件"""
     with open(file_path, "w") as f:
         f.write(" ".join(map(str, results)))
 
 
-# 获取最新文件路径
 def get_latest_file_path():
+    """获取最新文件路径"""
     files = [f for f in os.listdir(".") if re.match(r"output_n=\d+\.txt", f)]
     if not files:
         return None
     return max(files, key=lambda x: int(re.search(r"output_n=(\d+).txt", x).group(1)))
 
 
-# 启动计算
 def calculate_results(pool, start_index, end_index):
+    """启动计算"""
     return [pool.apply_async(calculate_2adic, args=(i,)) for i in range(start_index, end_index)]
 
 
-# 收集结果
 def collect_results(result_objects):
+    """收集结果"""
     return [obj.get() for obj in result_objects if obj.ready()]
 
 
-# 初始化结果列表
 def initialize_results(latest_file_path):
+    """初始化结果列表"""
     if latest_file_path:
         try:
             results = read_existing_results(latest_file_path)
@@ -152,8 +151,8 @@ def initialize_results(latest_file_path):
     return []
 
 
-# 执行计算任务并处理异常信号
 def perform_computations(pool, start_index, n):
+    """执行计算任务并处理异常信号"""
     result_objects = calculate_results(pool, start_index, n)
     pool.close()
     try:
@@ -168,28 +167,29 @@ def perform_computations(pool, start_index, n):
     return collect_results(result_objects), False
 
 
-# 保存结果到文件并打印运行时间
 def save_and_exit(results, output_filename):
+    """保存结果到文件并打印运行时间"""
     write_results_to_file(output_filename, results)
     logger.info(f"结果已写入到 {output_filename}")
     end_time = time.time()
     logger.info(f"程序运行时间: {end_time - start_time} 秒")
 
 
-# 初始化进程池
 def initialize_pool():
+    """初始化进程池"""
     return Pool()
 
 
-# 关闭进程池
 def shutdown_pool(pool, interrupted):
+    """关闭进程池"""
     if interrupted:
         pool.terminate()
     pool.join()
 
 
-# 处理计算任务，返回计算结果和是否被中断的标志
+#
 def handle_computation(pool, start_index, n):
+    """处理计算任务，返回计算结果和是否被中断的标志"""
     result_objects = calculate_results(pool, start_index, n)
     pool.close()
     try:
@@ -201,8 +201,8 @@ def handle_computation(pool, start_index, n):
     return collect_results(result_objects), False
 
 
-# 流程控制函数
 def main_flow(n, latest_file_path):
+    """流程控制函数"""
     results = initialize_results(latest_file_path)
     start_index = len(results)
     if n <= start_index:
@@ -216,8 +216,8 @@ def main_flow(n, latest_file_path):
     return results, output_filename, interrupted
 
 
-# 主函数
 def main(n):
+    """主函数"""
     start_time = time.time()
     latest_file_path = get_latest_file_path()
     results, output_filename, interrupted = main_flow(n, latest_file_path)
