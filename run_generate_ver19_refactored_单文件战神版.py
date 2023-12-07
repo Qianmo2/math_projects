@@ -190,11 +190,12 @@ def shutdown_pool(pool, interrupted):
 #
 def handle_computation(pool, start_index, n):
     """处理计算任务，返回计算结果和是否被中断的标志"""
+    sleep_time = 30
     result_objects = calculate_results(pool, start_index, n)
     pool.close()
     try:
         while not all(obj.ready() for obj in result_objects):
-            time.sleep(0.1)
+            time.sleep(sleep_time)
     except KeyboardInterrupt:
         logger.info("用户中断了计算。正在保存当前结果...")
         return collect_results(result_objects), True
