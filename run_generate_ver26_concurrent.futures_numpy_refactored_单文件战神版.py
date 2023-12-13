@@ -7,7 +7,7 @@ import re
 import numpy as np
 from functools import lru_cache
 from functools import partial
-from multiprocessing import Pool
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger()
@@ -122,25 +122,33 @@ def get_latest_file_path():
     return max(files, key=lambda x: int(re.search(r"output_n=(\d+).txt", x).group(1)))
 
 
-def perform_computations(pool, start_index, end_index, batch_size=100):
-    """启动计算并使用 imap_unordered 获取结果"""
+def perform_computations(start_index, end_index, batch_size=100):
+    """启动计算并使用 as_completed 获取结果"""
     tasks = range(start_index, end_index, batch_size)
-    # 使用 partial 函数来设置 calculate_batch 的 batch_size 参数
     calculate_batch_with_size = partial(calculate_batch, batch_size=batch_size)
-    result_objects = pool.imap_unordered(calculate_batch_with_size, tasks)
+
     results = []
     interrupted = False
-    try:
-        for result in result_objects:
-            results.extend(result)
-    except KeyboardInterrupt:
-        logger.info("用户中断了计算。正在保存当前结果...")
-        interrupted = True
-        pool.terminate()  # 立即停止所有进程
-    else:
-        pool.close()  # 阻止更多任务提交到进程池
-    finally:
-        pool.join()  # 等待进程池中的进程结束
+    with ProcessPoolExecutor() as executor:
+        future_to_index = {executor.submit(calculate_batch_with_size, task): task for task in tasks}
+
+        try:
+            for future in as_completed(future_to_index):
+                result = future.result()
+                results.extend(result)
+        except KeyboardInterrupt:
+            logger.info("用户中断了计算。正在保存当前结果...")
+            interrupted = True
+            # 取消所有正在运行或等待的任务
+            for future in future_to_index:
+                future.cancel()
+        except Exception as e:
+            logger.error(f"计算过程中发生错误: {e}")
+            interrupted = True
+            # 取消所有正在运行或等待的任务
+            for future in future_to_index:
+                future.cancel()
+
     return results, interrupted
 
 
@@ -158,19 +166,6 @@ def initialize_results(latest_file_path):
     return []
 
 
-def initialize_pool():
-    """初始化进程池"""
-    pool_size = os.cpu_count()  # 获取CPU核心数
-    return Pool(processes=pool_size)  # 根据核心数设置进程池大小
-
-
-def shutdown_pool(pool, interrupted):
-    """关闭进程池"""
-    if interrupted:
-        pool.terminate()
-    pool.join()
-
-
 def main_flow(n, latest_file_path, batch_size=100):
     """流程控制函数"""
     results = initialize_results(latest_file_path)
@@ -178,11 +173,10 @@ def main_flow(n, latest_file_path, batch_size=100):
     if n <= start_index:
         logger.info(f"文件中已包含 {start_index} 个数，无需进行更多计算。")
         return results, f"output_n={n}.txt", True
-    pool = initialize_pool()
-    new_results, interrupted = perform_computations(pool, start_index, n, batch_size)
+
+    new_results, interrupted = perform_computations(start_index, n, batch_size)
     results.extend(new_results)
     output_filename = f"output_n={len(results)}.txt"
-    shutdown_pool(pool, interrupted)
     return results, output_filename, interrupted
 
 
