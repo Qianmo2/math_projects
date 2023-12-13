@@ -3,12 +3,14 @@ import logging
 import gmpy2
 import os
 import re
+from functools import lru_cache
 from multiprocessing import Pool
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger()
 
 
+@lru_cache(maxsize=1024)
 def matrix_multiply(matrix1, matrix2):
     """
     矩阵乘法
@@ -27,6 +29,7 @@ def matrix_multiply(matrix1, matrix2):
     )
 
 
+@lru_cache(maxsize=1024)
 def matrix_power(matrix, power):
     """
     递归快速幂算法
@@ -53,6 +56,7 @@ def matrix_power(matrix, power):
         return matrix_multiply(matrix, half_power_squared) if power % 2 else half_power_squared
 
 
+@lru_cache(maxsize=1024)
 def fibonacci(n):
     """
     斐波那契数列有一个性质，它可以通过一个2x2矩阵的幂运算来计算
@@ -78,24 +82,18 @@ def fibonacci(n):
         return powered_matrix[0]
 
 
+@lru_cache(maxsize=1024)
 def how_times_Ln_divided_2(ln):
     """计算Ln被2除的次数"""
+    # 直接操作二进制表示来优化，而不是使用库函数 is_even 和 f_div_2exp
     times = 0
-    while ln > 0 and ln.is_even():  # 检查ln是否为偶数
-        ln = gmpy2.f_div_2exp(ln, 1)
+    while ln & 1 == 0 and ln != 0:  # 直到ln的最低位为1
+        ln >>= 1
         times += 1
     return times
 
 
-def get_latest_file():
-    """获取最新文件"""
-    # 获取当前目录下所有output_n={n}.txt文件，并找到n最大的文件
-    files = [f for f in os.listdir(".") if re.match(r"output_n=\d+\.txt", f)]
-    if not files:
-        return None
-    return max(files, key=lambda x: int(re.search(r"output_n=(\d+).txt", x).group(1)))
-
-
+@lru_cache(maxsize=1024)
 def calculate_2adic(index):
     """核心算法"""
     fib1 = fibonacci(12 * index + 3)
@@ -105,6 +103,15 @@ def calculate_2adic(index):
     result = how_times_Ln_divided_2(Ln)
     logger.info(f"第 {index + 1} 个数的 2-adic 为：{result}")
     return result
+
+
+def calculate_batch(start_index, batch_size):
+    """计算一批2-adic数"""
+    results = []
+    for i in range(start_index, start_index + batch_size):
+        result = calculate_2adic(i)
+        results.append(result)
+    return results
 
 
 def read_existing_results(file_path):
@@ -127,14 +134,25 @@ def get_latest_file_path():
     return max(files, key=lambda x: int(re.search(r"output_n=(\d+).txt", x).group(1)))
 
 
-def calculate_results(pool, start_index, end_index):
+def calculate_results(pool, start_index, end_index, batch_size=10):
     """启动计算"""
-    return [pool.apply_async(calculate_2adic, args=(i,)) for i in range(start_index, end_index)]
+    tasks = (end_index - start_index) // batch_size
+    result_objects = [pool.apply_async(calculate_batch, args=(i, batch_size)) for i in
+                      range(start_index, end_index, batch_size)]
+    # 如果有剩余的任务，确保它们也被计算
+    if (end_index - start_index) % batch_size != 0:
+        result_objects.append(pool.apply_async(calculate_batch, args=(
+        start_index + tasks * batch_size, (end_index - start_index) % batch_size)))
+    return result_objects
 
 
 def collect_results(result_objects):
     """收集结果"""
-    return [obj.get() for obj in result_objects if obj.ready()]
+    results = []
+    for obj in result_objects:
+        if obj.ready():
+            results.extend(obj.get())
+    return results
 
 
 def initialize_results(latest_file_path):
@@ -167,14 +185,6 @@ def perform_computations(pool, start_index, n):
     return collect_results(result_objects), False
 
 
-def save_and_exit(results, output_filename):
-    """保存结果到文件并打印运行时间"""
-    write_results_to_file(output_filename, results)
-    logger.info(f"结果已写入到 {output_filename}")
-    end_time = time.time()
-    logger.info(f"程序运行时间: {end_time - start_time} 秒")
-
-
 def initialize_pool():
     """初始化进程池"""
     return Pool()
@@ -187,21 +197,6 @@ def shutdown_pool(pool, interrupted):
     pool.join()
 
 
-#
-def handle_computation(pool, start_index, n):
-    """处理计算任务，返回计算结果和是否被中断的标志"""
-    sleep_time = 0.00001
-    result_objects = calculate_results(pool, start_index, n)
-    pool.close()
-    try:
-        while not all(obj.ready() for obj in result_objects):
-            time.sleep(sleep_time)
-    except KeyboardInterrupt:
-        logger.info("用户中断了计算。正在保存当前结果...")
-        return collect_results(result_objects), True
-    return collect_results(result_objects), False
-
-
 def main_flow(n, latest_file_path):
     """流程控制函数"""
     results = initialize_results(latest_file_path)
@@ -210,7 +205,7 @@ def main_flow(n, latest_file_path):
         logger.info(f"文件中已包含 {start_index} 个数，无需进行更多计算。")
         return results, f"output_n={n}.txt", True
     pool = initialize_pool()
-    new_results, interrupted = handle_computation(pool, start_index, n)
+    new_results, interrupted = perform_computations(pool, start_index, n)
     results.extend(new_results)
     output_filename = f"output_n={len(results)}.txt"
     shutdown_pool(pool, interrupted)

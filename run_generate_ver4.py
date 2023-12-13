@@ -29,14 +29,3 @@ with open("output.txt", "w") as f:
         print(f"第 {i + 1} 个数的2-adic为：{result}")
         f.write(f"{result} ")
         i += 1
-
-# with open('output.txt', 'w') as f:
-#     for i in range(n):
-#         # 定义Ln数列
-#         Ln = (((4 * (12 * i + 3) - 1)
-#                * fibonacci(12 * i + 3)
-#                + 2 * (12 * i + 3) * fibonacci((12 * i + 3) + 1))
-#               // 5)
-#         sum = how_times_Ln_divided_2(Ln)
-#         f.write(f"{sum} ")
-#         i += 1
