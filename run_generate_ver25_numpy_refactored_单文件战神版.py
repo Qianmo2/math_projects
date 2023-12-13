@@ -102,7 +102,6 @@ def calculate_batch(start_index, batch_size):
     return results.tolist()  # 将numpy数组转换回列表
 
 
-@lru_cache(maxsize=4)
 def read_existing_results(file_path):
     """读取已有结果"""
     with open(file_path, "r") as f:
@@ -123,7 +122,6 @@ def get_latest_file_path():
     return max(files, key=lambda x: int(re.search(r"output_n=(\d+).txt", x).group(1)))
 
 
-@lru_cache(maxsize=4)
 def perform_computations(pool, start_index, end_index, batch_size=100):
     """启动计算并使用 imap_unordered 获取结果"""
     tasks = range(start_index, end_index, batch_size)
@@ -146,7 +144,6 @@ def perform_computations(pool, start_index, end_index, batch_size=100):
     return results, interrupted
 
 
-@lru_cache(maxsize=4)
 def collect_results(result_objects):
     """收集结果"""
     results = []
@@ -156,7 +153,6 @@ def collect_results(result_objects):
     return results
 
 
-@lru_cache(maxsize=4)
 def initialize_results(latest_file_path):
     """初始化结果列表"""
     if latest_file_path:
@@ -199,7 +195,6 @@ def main_flow(n, latest_file_path, batch_size=100):
     return results, output_filename, interrupted
 
 
-@lru_cache(maxsize=4)
 def main(n):
     """主函数"""
     start_time = time.time()
