@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger()
 
 
-@lru_cache(maxsize=1024)
+@lru_cache(maxsize=4)
 def matrix_multiply(matrix1, matrix2):
     """
     矩阵乘法
@@ -29,7 +29,7 @@ def matrix_multiply(matrix1, matrix2):
     )
 
 
-@lru_cache(maxsize=1024)
+@lru_cache(maxsize=4)
 def matrix_power(matrix, power):
     """
     递归快速幂算法
@@ -56,7 +56,7 @@ def matrix_power(matrix, power):
         return matrix_multiply(matrix, half_power_squared) if power % 2 else half_power_squared
 
 
-@lru_cache(maxsize=1024)
+@lru_cache(maxsize=4)
 def fibonacci(n):
     """
     斐波那契数列有一个性质，它可以通过一个2x2矩阵的幂运算来计算
@@ -82,7 +82,7 @@ def fibonacci(n):
         return powered_matrix[0]
 
 
-@lru_cache(maxsize=1024)
+@lru_cache(maxsize=4)
 def how_times_Ln_divided_2(ln):
     """计算Ln被2除的次数"""
     # 直接操作二进制表示来优化，而不是使用库函数 is_even 和 f_div_2exp
@@ -93,7 +93,7 @@ def how_times_Ln_divided_2(ln):
     return times
 
 
-@lru_cache(maxsize=1024)
+@lru_cache(maxsize=4)
 def calculate_2adic(index):
     """核心算法"""
     fib1 = fibonacci(12 * index + 3)
@@ -134,16 +134,32 @@ def get_latest_file_path():
     return max(files, key=lambda x: int(re.search(r"output_n=(\d+).txt", x).group(1)))
 
 
-def calculate_results(pool, start_index, end_index, batch_size=10):
+def calculate_results(pool, start_index, end_index, batch_size=100):
     """启动计算"""
     tasks = (end_index - start_index) // batch_size
     result_objects = [pool.apply_async(calculate_batch, args=(i, batch_size)) for i in
                       range(start_index, end_index, batch_size)]
-    # 如果有剩余的任务，确保它们也被计算
+    # 如果有剩余的任务，确保它们也被计算（断点续写功能）
     if (end_index - start_index) % batch_size != 0:
         result_objects.append(pool.apply_async(calculate_batch, args=(
             start_index + tasks * batch_size, (end_index - start_index) % batch_size)))
     return result_objects
+
+
+def perform_computations(pool, start_index, n):
+    """执行计算任务并处理异常信号"""
+    result_objects = calculate_results(pool, start_index, n)
+    pool.close()
+    try:
+        while not all(obj.ready() for obj in result_objects):
+            time.sleep(0.01)
+    except KeyboardInterrupt:
+        logger.info("用户中断了计算。正在保存当前结果...")
+        pool.terminate()
+        pool.join()
+        return collect_results(result_objects), True
+    pool.join()
+    return collect_results(result_objects), False
 
 
 def collect_results(result_objects):
@@ -169,25 +185,10 @@ def initialize_results(latest_file_path):
     return []
 
 
-def perform_computations(pool, start_index, n):
-    """执行计算任务并处理异常信号"""
-    result_objects = calculate_results(pool, start_index, n)
-    pool.close()
-    try:
-        while not all(obj.ready() for obj in result_objects):
-            time.sleep(0.01)
-    except KeyboardInterrupt:
-        logger.info("用户中断了计算。正在保存当前结果...")
-        pool.terminate()
-        pool.join()
-        return collect_results(result_objects), True
-    pool.join()
-    return collect_results(result_objects), False
-
-
 def initialize_pool():
     """初始化进程池"""
-    return Pool()
+    pool_size = os.cpu_count()  # 获取CPU核心数
+    return Pool(processes=pool_size)  # 根据核心数设置进程池大小
 
 
 def shutdown_pool(pool, interrupted):
