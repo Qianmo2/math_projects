@@ -87,22 +87,6 @@ def fibonacci(n):
 
 
 @lru_cache(maxsize=4)
-def calculate_2adic(index):
-    """核心算法"""
-    fib1 = fibonacci(12 * index + 3)
-    fib2 = fibonacci(12 * index + 4)
-    const = gmpy2.mpz(4 * (12 * index + 3) - 1)
-    Ln = (const * fib1 + 2 * (12 * index + 3) * fib2) // 5
-    times = 0
-    while Ln & 1 == 0 and Ln != 0:  # 直到Ln的最低位为1
-        Ln >>= 1  # 直接操作二进制表示来优化，而不是使用库函数 is_even 和 f_div_2exp
-        times += 1
-    result = times  # 计算Ln被2除的次数
-    logger.info(f"第 {index + 1} 个数的 2-adic 为：{result}")
-    return result
-
-
-@lru_cache(maxsize=4)
 def calculate_batch(start_index, batch_size):
     """计算一批2-adic数，batch_size 作为参数传递"""
     results = np.zeros(batch_size, dtype=np.int64)  # 使用numpy数组存储结果
@@ -137,19 +121,6 @@ def get_latest_file_path():
     if not files:
         return None
     return max(files, key=lambda x: int(re.search(r"output_n=(\d+).txt", x).group(1)))
-
-
-@lru_cache(maxsize=4)
-def calculate_results(pool, start_index, end_index, batch_size=100):
-    """启动计算"""
-    tasks = (end_index - start_index) // batch_size
-    result_objects = [pool.apply_async(calculate_batch, args=(i, batch_size)) for i in
-                      range(start_index, end_index, batch_size)]
-    # 如果有剩余的任务，确保它们也被计算（断点续写功能）
-    if (end_index - start_index) % batch_size != 0:
-        result_objects.append(pool.apply_async(calculate_batch, args=(
-            start_index + tasks * batch_size, (end_index - start_index) % batch_size)))
-    return result_objects
 
 
 @lru_cache(maxsize=4)
@@ -213,7 +184,6 @@ def shutdown_pool(pool, interrupted):
     pool.join()
 
 
-@lru_cache(maxsize=4)
 def main_flow(n, latest_file_path, batch_size=100):
     """流程控制函数"""
     results = initialize_results(latest_file_path)

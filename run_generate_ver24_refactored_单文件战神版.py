@@ -130,18 +130,6 @@ def get_latest_file_path():
     return max(files, key=lambda x: int(re.search(r"output_n=(\d+).txt", x).group(1)))
 
 
-def calculate_results(pool, start_index, end_index, batch_size=100):
-    """启动计算"""
-    tasks = (end_index - start_index) // batch_size
-    result_objects = [pool.apply_async(calculate_batch, args=(i, batch_size)) for i in
-                      range(start_index, end_index, batch_size)]
-    # 如果有剩余的任务，确保它们也被计算（断点续写功能）
-    if (end_index - start_index) % batch_size != 0:
-        result_objects.append(pool.apply_async(calculate_batch, args=(
-            start_index + tasks * batch_size, (end_index - start_index) % batch_size)))
-    return result_objects
-
-
 def perform_computations(pool, start_index, end_index, batch_size=100):
     """启动计算并使用 imap_unordered 获取结果"""
     tasks = range(start_index, end_index, batch_size)
