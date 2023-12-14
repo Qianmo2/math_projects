@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger()
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=100)
 def matrix_multiply(matrix1, matrix2):
     """
     矩阵乘法
@@ -33,7 +33,7 @@ def matrix_multiply(matrix1, matrix2):
     )
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=100)
 def matrix_power(matrix, power):
     """
     递归快速幂算法
@@ -60,7 +60,7 @@ def matrix_power(matrix, power):
         return matrix_multiply(matrix, half_power_squared) if power % 2 else half_power_squared
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=100)
 def fibonacci(n):
     """
     斐波那契数列有一个性质，它可以通过一个2x2矩阵的幂运算来计算
@@ -86,7 +86,7 @@ def fibonacci(n):
         return powered_matrix[0]
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=100)
 def calculate_batch(start_index, batch_size):
     """计算一批2-adic数，batch_size 作为参数传递"""
     results = np.zeros(batch_size, dtype=np.int64)  # 使用numpy数组存储结果
