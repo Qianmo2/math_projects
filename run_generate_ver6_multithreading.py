@@ -1,4 +1,4 @@
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor  # 多线程
 from fractions import Fraction
 from itertools import islice
 from functools import lru_cache
@@ -36,7 +36,7 @@ def calculate(i):
 
 n = int(input("请输入n: "))
 
-with ThreadPoolExecutor() as executor:
+with ThreadPoolExecutor() as executor:  # 使用多线程
     results = executor.map(calculate, range(n))
 
 with open("output.txt", "w") as f:

@@ -25,13 +25,13 @@ def matrix_multiply(matrix1, matrix2):
 
     a, b, c = matrix1
     d, e, f = matrix2
+    ad = gmpy2.mul(a, d)
     be = gmpy2.mul(b, e)
     return (
-        gmpy2.mul(a, d) + be,
+        ad + be,
         gmpy2.mul(a, e) + gmpy2.mul(b, f),
         be + gmpy2.mul(c, f),
     )
-
 
 @lru_cache(maxsize=100)
 def matrix_power(matrix, power):
@@ -105,7 +105,7 @@ def calculate_batch(start_index, batch_size):
 def read_existing_results(file_path):
     """读取已有结果"""
     with open(file_path, "r") as f:
-        return list(map(int, f.read().strip().split()))
+        return list(map(int, f.read().strip().split()))  # 读取文件并转换为整数列表
 
 
 def write_results_to_file(file_path, results):

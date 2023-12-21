@@ -1,4 +1,4 @@
-def f(n, memo={}):
+def f(n, memo={}):  # memo的作用是记录已经计算过的值，避免重复计算
     if n in memo:
         return memo[n]
     if n <= 0:

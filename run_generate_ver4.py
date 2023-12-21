@@ -2,7 +2,7 @@ from fractions import Fraction
 
 
 def fibonacci(n):
-    fib = [Fraction(0), Fraction(1)] + [Fraction(0)] * (n - 1)
+    fib = [Fraction(0), Fraction(1)] + [Fraction(0)] * (n - 1)  # 使用分数存储结果
     for i in range(2, n + 1):
         fib[i] = fib[i - 1] + fib[i - 2]
     return fib[n]

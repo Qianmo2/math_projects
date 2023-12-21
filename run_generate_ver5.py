@@ -3,7 +3,7 @@ from itertools import islice
 from functools import lru_cache
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=None)  # 使用缓存加速计算
 def fibonacci(n):
     a, b = Fraction(0), Fraction(1)
     for _ in range(n):

@@ -2,7 +2,7 @@ import numpy as np
 
 
 def f(n):
-    fib = np.arange(n + 1, dtype=np.int64)
+    fib = np.arange(n + 1, dtype=np.int64)  # 使用numpy数组存储结果
     fib[0] = 0
     1
     for i in range(2, n + 1):

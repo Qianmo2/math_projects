@@ -1,5 +1,4 @@
 import time
-
 from fractions import Fraction
 from itertools import islice
 from functools import lru_cache
