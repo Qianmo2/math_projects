@@ -33,6 +33,7 @@ def matrix_multiply(matrix1, matrix2):
         be + gmpy2.mul(c, f),
     )
 
+
 @lru_cache(maxsize=100)
 def matrix_power(matrix, power):
     """
