@@ -12,8 +12,10 @@ from multiprocessing import Pool
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger()
 
+FIB_MATRIX = (1, 1, 0)
 
-@lru_cache(maxsize=100)
+
+@lru_cache(maxsize=128)
 def matrix_multiply(matrix1, matrix2):
     """
     矩阵乘法
@@ -34,7 +36,7 @@ def matrix_multiply(matrix1, matrix2):
     )
 
 
-@lru_cache(maxsize=100)
+@lru_cache(maxsize=128)
 def matrix_power(matrix, power):
     """
     递归快速幂算法
@@ -61,7 +63,7 @@ def matrix_power(matrix, power):
         return matrix_multiply(matrix, half_power_squared) if power % 2 else half_power_squared
 
 
-@lru_cache(maxsize=100)
+@lru_cache(maxsize=128)  # 选用一个2的幂作为maxsize参数
 def fibonacci(n):
     """
     斐波那契数列有一个性质，它可以通过一个2x2矩阵的幂运算来计算
@@ -78,13 +80,10 @@ def fibonacci(n):
     | powered_matrix[0], powered_matrix[1] |
     | powered_matrix[1], powered_matrix[2] |
     """
-
-    if n <= 0:
-        return gmpy2.mpz(0)
-    else:
-        matrix = (gmpy2.mpz(1), gmpy2.mpz(1), gmpy2.mpz(0))
-        powered_matrix = matrix_power(matrix, n - 1)
-        return powered_matrix[0]
+    if n < 1:
+        return 0
+    powered_matrix = matrix_power(FIB_MATRIX, n - 1)
+    return powered_matrix[0]
 
 
 def calculate_batch(start_index, batch_size):
@@ -98,7 +97,7 @@ def calculate_batch(start_index, batch_size):
         Ln = (const * fib1 + 2 * (12 * index + 3) * fib2) // 5
         result = gmpy2.bit_scan1(Ln)
         results[i] = result if result is not None else 0
-        if i % (batch_size // 25) == 0:  # 减少日志频率，每个batch只打印10次
+        if i % (batch_size // 25) == 0:  # 减少日志频率，每个batch只打印25次
             logger.info(f"第 {index + 1} 个数的 2-adic 为：{results[i]}")
     return results
 
