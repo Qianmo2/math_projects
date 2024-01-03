@@ -9,6 +9,7 @@ from functools import lru_cache
 from functools import partial
 from multiprocessing import Pool
 
+
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger()
 
