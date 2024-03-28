@@ -7,6 +7,8 @@ def calculate_power(x, y):
     return x ** (y + 1)
 
 
+
+
 def gen_rudin_shapiro_seq(n):
     # 初始化Rudin-Shapiro序列
     a = ['a']
