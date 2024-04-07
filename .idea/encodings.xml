@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="Encoding">
-    <file url="file://$PROJECT_DIR$/gen_hankel_matrix_by_sum-free" charset="GBK" />
     <file url="file://$PROJECT_DIR$/hankel" charset="GBK" />
+    <file url="file://$PROJECT_DIR$/hankel/gen_hankel_matrix_by_sum-free" charset="GBK" />
     <file url="file://$PROJECT_DIR$/sum-free" charset="GBK" />
   </component>
 </project>
